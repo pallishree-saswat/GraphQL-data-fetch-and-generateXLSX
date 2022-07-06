@@ -3,12 +3,37 @@ const app = express();
 require("dotenv").config();
 const PORT = process.env.PORT;
 const uploadFile = require("./utils/upload");
-const generateXlsx = require("./utils/generateXlsx");
+const {
+  generateXlsx,
+  generateXlsxWithMultiple,
+} = require("./utils/generateXlsx");
 const getPaymentsBills = require("./server/payments");
 const getUsersList = require("./server/users");
 const getContentList = require("./server/contents");
 const loginUser = require("./server/login");
 app.use(express.json());
+
+app.get("/", async (req, res) => {
+  let result = await loginUser();
+  process.env.access_token = result.data.data.login.access_token;
+  let result2 = await getPaymentsBills();
+  let result3 = await getContentList();
+
+  //generate xlsx file
+  await generateXlsxWithMultiple(
+    result3?.data?.data?.listContents?.contents,
+    result2?.data.data?.listPayments?.billingHistory
+  );
+
+  //upload to s3 buckect
+  let filePath = await uploadFile();
+
+  res.json({
+    success: true,
+    message: "Successfully created file and uploaded file",
+    file: filePath.Location,
+  });
+});
 
 app.get("/login", async (req, res) => {
   let result = await loginUser();
